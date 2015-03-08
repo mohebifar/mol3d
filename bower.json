@@ -1,0 +1,29 @@
+{
+  "name": "mol3d",
+  "version": "0.0.0",
+  "homepage": "https://github.com/mohebifar/mol3d",
+  "authors": [
+    "mohebifar <netfars@gmail.com>"
+  ],
+  "description": "A WebGL molecule renderer and editor",
+  "moduleType": [
+    "es6",
+    "globals"
+  ],
+  "keywords": [
+    "WebGl",
+    "chemistry",
+    "drawing",
+    "rendering",
+    "chemical",
+    "molecule"
+  ],
+  "license": "MIT",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ]
+}
