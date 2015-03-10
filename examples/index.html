@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head lang="en">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <title>Example of MolCanvas</title>
+  <link rel="stylesheet" href="demo.css"/>
+  <!--<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/github-fork-ribbon-css/0.1.1/gh-fork-ribbon.min.css" />-->
+</head>
+<body>
+
+<!--
+<div class="github-fork-ribbon-wrapper right">
+  <div class="github-fork-ribbon">
+    <a href="https://github.com/mohebifar/molcanvas.js">MolCanvas.js on GitHub</a>
+  </div>
+</div>
+-->
+
+<div class="menu">
+  <button onclick="canvas.setMode(Mol3D.Mode.Orbit)">Camera Handling Mode</button>
+  <button onclick="canvas.setMode(Mol3D.Mode.Editor)">Editor Mode</button>
+
+  <select onchange="loadMol(this.value)">
+    <option value="cyclohexane" selected>Cyclohexane</option>
+    <option value="fullerene">Fullerene</option>
+    <option value="adamantine">Adamantine</option>
+  </select>
+</div>
+
+<!--<script src="../bower_components/tween.js/build/tween.min.js"></script>-->
+<script src="../bower_components/three.js/three.js"></script>
+<script src="../../chem.js/dist/chem.js"></script>
+<script src="../dist/mol3d.js"></script>
+<script>
+  function loadMol(name) {
+
+    var xhr = new XMLHttpRequest();
+    xhr.addEventListener('readystatechange', function () {
+      if (xhr.readyState == 4 && xhr.status == 200) {
+
+        var data = JSON.parse(xhr.response);
+        var molecule = Chem.Molecule.readJSON(data);
+        canvas.clear();
+        canvas.attach(molecule);
+      }
+    });
+
+    xhr.open('get', 'mol-json/' + name + '.json');
+    xhr.send();
+  }
+
+  var canvas = new Mol3D.Canvas();
+
+  canvas.setDisplay(Mol3D.Display.BallAndStick);
+  canvas.setMode(Mol3D.Mode.Orbit);
+
+  canvas.show();
+
+  loadMol('cyclohexane');
+
+  document.body.appendChild(canvas.renderer.domElement);
+
+  window.addEventListener('resize', function () {
+
+    canvas.camera.aspect = window.innerWidth / window.innerHeight;
+    canvas.camera.updateProjectionMatrix();
+
+    canvas.renderer.setSize(this.innerWidth, this.innerHeight);
+
+  });
+</script>
+</body>
+</html>

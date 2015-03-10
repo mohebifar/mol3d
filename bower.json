@@ -25,5 +25,8 @@
     "bower_components",
     "test",
     "tests"
-  ]
+  ],
+  "dependencies": {
+    "tween.js": "https://github.com/sole/tween.js.git"
+  }
 }

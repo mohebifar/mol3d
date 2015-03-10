@@ -1,0 +1,51 @@
+* {
+    -webkit-box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    font-family: "Helvetica Neue Light", "HelveticaNeue-Light", "Helvetica Neue", Calibri, Helvetica, Arial, sans-serif;
+}
+
+body > canvas {
+    position: absolute;
+    background-color: #222;
+    background-image: radial-gradient(#788D97, #1D2327);
+    z-index: 1;
+}
+
+.menu {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 50px;
+    line-height: 50px;
+    padding: 0 3px;
+    background-color: rgba(255, 255, 255, .3);
+    z-index: 100;
+}
+
+.menu > button,
+.menu > select {
+    line-height: 40px;
+    height: 100%;
+    display: block;
+    float: left;
+    border: none;
+    color: #ffffff;
+    text-transform: uppercase;
+    background-color: rgba(0, 0, 0, .3);
+    margin: 0;
+    border-left: 1px solid #868686;
+    padding: 0 10px;
+}
+
+.menu > button:hover,
+.menu > select:hover {
+    background-color: rgba(0, 0, 0, .6);
+    cursor: pointer;
+}
