@@ -60,6 +60,19 @@ class Canvas {
     }
   }
 
+  update() {
+    for (let atom of this.atoms) {
+      for(let display of this._displays) {
+        display.drawAtom(atom);
+      }
+    }
+    for (let bond of this.bonds) {
+      for(let display of this._displays) {
+        display.drawBond(bond);
+      }
+    }
+  }
+
   removeAtom(atom) {
     atom.emit('delete');
   }
@@ -86,9 +99,14 @@ class Canvas {
 
   clear() {
     var atoms = this.atoms.slice(0, this.atoms.length);
+    var bonds = this.bonds.slice(0, this.bonds.length);
 
-    for (let i in atoms) {
-      this.removeAtom(atoms[i]);
+    for (let atom of atoms) {
+      this.removeAtom(atom);
+    }
+
+    for (let bond of bonds) {
+      this.removeBond(bond);
     }
   }
 

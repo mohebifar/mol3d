@@ -112,6 +112,28 @@ var Canvas = (function () {
       enumerable: true,
       configurable: true
     },
+    update: {
+      value: function update() {
+        for (var _iterator = this.atoms[Symbol.iterator](), _step; !(_step = _iterator.next()).done;) {
+          var atom = _step.value;
+          for (var _iterator2 = this._displays[Symbol.iterator](), _step2; !(_step2 = _iterator2.next()).done;) {
+            var display = _step2.value;
+            display.drawAtom(atom);
+          }
+        }
+
+        for (var _iterator3 = this.bonds[Symbol.iterator](), _step3; !(_step3 = _iterator3.next()).done;) {
+          var bond = _step3.value;
+          for (var _iterator4 = this._displays[Symbol.iterator](), _step4; !(_step4 = _iterator4.next()).done;) {
+            var display = _step4.value;
+            display.drawBond(bond);
+          }
+        }
+      },
+      writable: true,
+      enumerable: true,
+      configurable: true
+    },
     removeAtom: {
       value: function removeAtom(atom) {
         atom.emit("delete");
@@ -152,9 +174,16 @@ var Canvas = (function () {
     clear: {
       value: function clear() {
         var atoms = this.atoms.slice(0, this.atoms.length);
+        var bonds = this.bonds.slice(0, this.bonds.length);
 
-        for (var i in atoms) {
-          this.removeAtom(atoms[i]);
+        for (var _iterator5 = atoms[Symbol.iterator](), _step5; !(_step5 = _iterator5.next()).done;) {
+          var atom = _step5.value;
+          this.removeAtom(atom);
+        }
+
+        for (var _iterator6 = bonds[Symbol.iterator](), _step6; !(_step6 = _iterator6.next()).done;) {
+          var bond = _step6.value;
+          this.removeBond(bond);
         }
       },
       writable: true,
@@ -318,6 +347,11 @@ var BallAndStick = (function (BaseDisplay) {
       sphere: new THREE.SphereGeometry(0.3, 20, 20, 0, 2 * Math.PI),
       cylinder: new THREE.CylinderGeometry(0.04, 0.04, 1)
     };
+    var mat = new THREE.Matrix4();
+    mat.translate(new THREE.Vector3(0, 1, 0));
+    this.geometries.single = this.geometries.cylinder;
+    this.geometries.double = new THREE.Geometry();
+    this.geometries.double.merge(this.geometries.single, mat);
 
     this.geometries.cylinder.applyMatrix(new THREE.Matrix4().makeRotationX(Math.PI / 2));
 
@@ -388,22 +422,30 @@ var BallAndStick = (function (BaseDisplay) {
     },
     drawAtom: {
       value: function drawAtom(atom) {
-        var material = new THREE.MeshPhongMaterial({
-          ambient: atom.element.color,
-          color: atom.element.color,
-          specular: 1052688,
-          shininess: 30
-        });
+        var mesh, material;
+        if (!atom.hasData(BAS_KEY)) {
+          material = new THREE.MeshPhongMaterial({
+            specular: 1052688,
+            shininess: 30
+          });
+          mesh = new THREE.Mesh(this.geometries.sphere, material);
+
+          atom.setData(BAS_KEY, mesh);
+          this.canvas.group.add(mesh);
+
+          mesh.type = "atom";
+          mesh.model = atom;
+        } else {
+          mesh = atom.getData(BAS_KEY);
+          material = mesh.material;
+        }
+
+        material.ambient.set(atom.element.color);
+        material.color.set(atom.element.color);
 
         var radius = Math.exp(-Math.pow(atom.element.atomicRadius - 91, 2) / 500) * atom.element.atomicRadius / 70;
-        var mesh = new THREE.Mesh(this.geometries.sphere, material);
         mesh.scale.set(radius, radius, radius);
         mesh.position.copy(atom.position);
-        mesh.type = "atom";
-        mesh.model = atom;
-        this.canvas.group.add(mesh);
-
-        atom.setData(BAS_KEY, mesh);
       },
       writable: true,
       enumerable: true,
@@ -420,13 +462,6 @@ var BallAndStick = (function (BaseDisplay) {
     },
     drawBond: {
       value: function drawBond(bond) {
-        var elements;
-
-        elements = new THREE.Object3D();
-
-
-        bond.setData(BAS_KEY, elements);
-
         var canvas = this.canvas,
             group = canvas.group,
             begin = bond.begin,
@@ -434,11 +469,10 @@ var BallAndStick = (function (BaseDisplay) {
             beginData = begin.getData(BAS_KEY),
             endData = end.getData(BAS_KEY);
 
+
         if (!beginData || !endData) {
           return;
         }
-
-        group.add(elements);
 
         var beginPosition = beginData.position,
             endPosition = endData.position,
@@ -448,31 +482,51 @@ var BallAndStick = (function (BaseDisplay) {
             middle = beginPosition.clone().add(endPosition).divideScalar(2),
             d = 0.06;
 
+        var material, mesh;
+
+        if (!bond.hasData(BAS_KEY)) {
+
+
+          material = new THREE.MeshPhongMaterial({
+            color: 16777215,
+            specular: 1052688,
+            shininess: 30,
+            transparent: true
+          });
+
+          mesh = new THREE.Mesh(this.geometries.cylinder, material);
+          bond.setData(BAS_KEY, mesh);
+        } else {
+          mesh = bond.getData(BAS_KEY);
+          material = mesh.material;
+        }
+
         var texture = BallAndStick.generateTexture(beginColor, endColor);
 
-        var material = new THREE.MeshPhongMaterial({
-          color: 16777215,
-          specular: 1052688,
-          shininess: 30,
-          map: texture,
-          transparent: true
-        });
+        material.map = texture;
+        mesh.scale.z = distance;
+        mesh.position.copy(middle);
+        mesh.lookAt(endPosition);
 
-        var c = (bond.order - 1) * d;
+        group.add(mesh);
 
-        for (var i = 0; i < bond.order; i++) {
-          var mesh = new THREE.Mesh(this.geometries.cylinder, material);
-          mesh.scale.z = distance;
-          mesh.position.copy(middle);
-          mesh.lookAt(endPosition);
-          elements.add(mesh);
-        }
+        /*
+            var c = (bond.order - 1) * d;
+        
+            for (let i = 0; i < bond.order; i++) {
+              let mesh = new THREE.Mesh(this.geometries.cylinder, material);
+              mesh.scale.z = distance;
+              mesh.position.copy(middle);
+              mesh.lookAt(endPosition);
+              elements.add(mesh);
+            }
+         for (let j in elements.children) {
+         let cylinder = elements.children[j];
+        
+         cylinder.position.y += j * d * 2.1 - c;
+         }
+        */
 
-        for (var j in elements.children) {
-          var cylinder = elements.children[j];
-
-          cylinder.position.y += j * d * 2.1 - c;
-        }
 
       },
       writable: true,
@@ -482,7 +536,6 @@ var BallAndStick = (function (BaseDisplay) {
     removeBond: {
       value: function removeBond(bond) {
         var mesh = bond.getData(BAS_KEY);
-        console.log(1);
         this.canvas.group.remove(mesh);
       },
       writable: true,
@@ -1147,6 +1200,7 @@ var EditorMode = (function () {
             element = renderer.domElement;
 
         element.addEventListener("mousedown", this.listeners.mousedown);
+        element.addEventListener("mousemove", this.listeners.mousemove);
         element.addEventListener("mouseup", this.listeners.mouseup);
       },
       writable: true,
@@ -1177,10 +1231,12 @@ var EditorMode = (function () {
       value: function AttachListeners() {
         var _this5 = this;
         var downPosition = new THREE.Vector2(),
-            movePosition = new THREE.Vector3(),
+            movePosition = new THREE.Vector2(),
             upPosition = new THREE.Vector2();
 
         var atom1, atom2;
+
+        var fixed = false;
 
         this.listeners = {};
 
@@ -1194,24 +1250,57 @@ var EditorMode = (function () {
           var position = _this5._getPosition(downPosition);
 
           if (e.which === 1 && position && intersect.length === 0) {
-            if (intersect.length === 0) {
-              var atom = new Chem.Atom();
+            var atom = new Chem.Atom();
 
-              atom.atomicNumber = 6;
-              atom.position = position;
+            atom.atomicNumber = 6;
+            atom.position = position;
+            canvas.addAtom(atom);
 
-              canvas.addAtom(atom);
+            atom1 = atom;
+          } else if (e.which === 1 && position && intersect.length > 0) {
+            var model = _this5._getNearest(intersect);
 
-              atom1 = atom;
-            } else if (e.which === 1 && intersect.length) {}
+            if (model instanceof Chem.Atom) {
+              atom1 = model;
+            }
           }
         };
 
         this.listeners.mousemove = function (e) {
           movePosition.set(e.clientX, e.clientY);
 
-          var position = this._getPosition(downPosition);
-          if (atom1) {}
+          var caster = _this5._getRayCaster(movePosition);
+          var position = _this5._getPosition(movePosition);
+
+          if (e.which === 1 && atom1 && movePosition.distanceTo(downPosition) > 60) {
+            var intersect = caster.intersectObjects(canvas.group.children);
+
+            intersect = intersect.filter(function (item) {
+              return item.object && item.object.type === "atom" && item.object.model !== atom2;
+            });
+
+            var model = _this5._getNearest(intersect);
+
+            if (!fixed && model) {
+              canvas.removeAtom(atom2);
+              atom2 = model;
+              var bond = new Chem.Bond(atom1, atom2);
+              canvas.addBond(bond);
+              fixed = true;
+            } else if (!fixed) {
+              if (!atom2) {
+                atom2 = new Chem.Atom();
+                atom2.atomicNumber = 6;
+                atom2.position = position;
+                var bond = new Chem.Bond(atom1, atom2);
+
+                canvas.addAtom(atom2);
+              }
+
+              atom2.position = position;
+              canvas.update();
+            }
+          }
         };
 
         this.listeners.mouseup = function (e) {
@@ -1220,10 +1309,12 @@ var EditorMode = (function () {
 
           if (e.which === 1 && upPosition.distanceTo(downPosition) > 60) {
             var position = _this5._getPosition(upPosition);
+
           }
 
           atom1 = false;
           atom2 = false;
+          fixed = false;
         };
       },
       writable: true,
@@ -1259,6 +1350,28 @@ var EditorMode = (function () {
         rayCaster.setFromCamera(point3d, this.canvas.camera);
 
         return rayCaster;
+      },
+      writable: true,
+      enumerable: true,
+      configurable: true
+    },
+    _getNearest: {
+      value: function GetNearest(objects) {
+        var distance = 0,
+            result = null;
+
+        for (var _iterator7 = objects[Symbol.iterator](), _step7; !(_step7 = _iterator7.next()).done;) {
+          var object = _step7.value;
+
+
+          var _distance = object.object.position.distanceTo(this.canvas.camera.position);
+          if (!result || _distance < distance) {
+            distance = _distance;
+            result = object.object.model;
+          }
+        }
+
+        return result;
       },
       writable: true,
       enumerable: true,

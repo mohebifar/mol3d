@@ -11,6 +11,11 @@ class BallAndStick extends BaseDisplay {
       sphere: new THREE.SphereGeometry(0.3, 20, 20, 0, 2 * Math.PI),
       cylinder: new THREE.CylinderGeometry(0.04, 0.04, 1)
     };
+    var mat = new THREE.Matrix4();
+    mat.translate(new THREE.Vector3(0, 1, 0));
+    this.geometries.single = this.geometries.cylinder;
+    this.geometries.double = new THREE.Geometry();
+    this.geometries.double.merge(this.geometries.single, mat);
 
     this.geometries.cylinder.applyMatrix(new THREE.Matrix4().makeRotationX(Math.PI / 2));
 
@@ -34,22 +39,30 @@ class BallAndStick extends BaseDisplay {
   }
 
   drawAtom(atom) {
-    let material = new THREE.MeshPhongMaterial({
-      ambient: atom.element.color,
-      color: atom.element.color,
-      specular: 0x101010,
-      shininess: 30
-    });
+    var mesh, material;
+    if( ! atom.hasData(BAS_KEY)) {
+      material = new THREE.MeshPhongMaterial({
+        specular: 0x101010,
+        shininess: 30
+      });
+      mesh = new THREE.Mesh(this.geometries.sphere, material);
+
+      atom.setData(BAS_KEY, mesh);
+      this.canvas.group.add(mesh);
+
+      mesh.type = 'atom';
+      mesh.model = atom;
+    } else {
+      mesh = atom.getData(BAS_KEY);
+      material = mesh.material;
+    }
+
+    material.ambient.set(atom.element.color);
+    material.color.set(atom.element.color);
 
     let radius = Math.exp(-Math.pow(atom.element.atomicRadius - 91, 2) / 500) * atom.element.atomicRadius / 70;
-    let mesh = new THREE.Mesh(this.geometries.sphere, material);
     mesh.scale.set(radius, radius, radius);
     mesh.position.copy(atom.position);
-    mesh.type = 'atom';
-    mesh.model = atom;
-    this.canvas.group.add(mesh);
-
-    atom.setData(BAS_KEY, mesh);
   }
 
   removeAtom(atom) {
@@ -58,13 +71,6 @@ class BallAndStick extends BaseDisplay {
   }
 
   drawBond(bond) {
-    var elements;
-
-    elements = new THREE.Object3D();
-
-
-    bond.setData(BAS_KEY, elements);
-
     var canvas = this.canvas,
       group = canvas.group,
       begin = bond.begin,
@@ -72,11 +78,10 @@ class BallAndStick extends BaseDisplay {
       beginData = begin.getData(BAS_KEY),
       endData = end.getData(BAS_KEY);
 
+
     if (!beginData || !endData) {
       return;
     }
-
-    group.add(elements);
 
     var beginPosition = beginData.position,
       endPosition = endData.position,
@@ -86,16 +91,35 @@ class BallAndStick extends BaseDisplay {
       middle = beginPosition.clone().add(endPosition).divideScalar(2),
       d = 0.06;
 
-    var texture = BallAndStick.generateTexture(beginColor, endColor);
+    var material, mesh;
 
-    var material = new THREE.MeshPhongMaterial({
-      color: 0xffffff,
-      specular: 0x101010,
-      shininess: 30,
-      map: texture,
-      transparent: true
-    });
+    if(! bond.hasData(BAS_KEY)) {
 
+
+      material = new THREE.MeshPhongMaterial({
+        color: 0xffffff,
+        specular: 0x101010,
+        shininess: 30,
+        transparent: true
+      });
+
+      mesh = new THREE.Mesh(this.geometries.cylinder, material);
+      bond.setData(BAS_KEY, mesh);
+    } else {
+      mesh = bond.getData(BAS_KEY);
+      material = mesh.material;
+    }
+
+    let texture = BallAndStick.generateTexture(beginColor, endColor);
+
+    material.map = texture;
+    mesh.scale.z = distance;
+    mesh.position.copy(middle);
+    mesh.lookAt(endPosition);
+
+    group.add(mesh);
+
+/*
     var c = (bond.order - 1) * d;
 
     for (let i = 0; i < bond.order; i++) {
@@ -105,19 +129,19 @@ class BallAndStick extends BaseDisplay {
       mesh.lookAt(endPosition);
       elements.add(mesh);
     }
+ for (let j in elements.children) {
+ let cylinder = elements.children[j];
 
-    for (let j in elements.children) {
-      let cylinder = elements.children[j];
+ cylinder.position.y += j * d * 2.1 - c;
+ }
+*/
 
-      cylinder.position.y += j * d * 2.1 - c;
-    }
 
 
   }
 
   removeBond(bond) {
     let mesh = bond.getData(BAS_KEY);
-    console.log(1);
     this.canvas.group.remove(mesh);
   }
 

@@ -13,6 +13,7 @@ class EditorMode {
       element = renderer.domElement;
 
     element.addEventListener('mousedown', this.listeners.mousedown);
+    element.addEventListener('mousemove', this.listeners.mousemove);
     element.addEventListener('mouseup', this.listeners.mouseup);
   }
 
@@ -30,10 +31,12 @@ class EditorMode {
 
   _attachListeners() {
     var downPosition = new THREE.Vector2(),
-      movePosition = new THREE.Vector3(),
+      movePosition = new THREE.Vector2(),
       upPosition = new THREE.Vector2();
 
     var atom1, atom2;
+
+    var fixed = false;
 
     this.listeners = {};
 
@@ -47,28 +50,58 @@ class EditorMode {
       let position = this._getPosition(downPosition);
 
       if (e.which === 1 && position && intersect.length === 0) {
-        if (intersect.length === 0) {
           let atom = new Chem.Atom();
 
           atom.atomicNumber = 6;
           atom.position = position;
-
           canvas.addAtom(atom);
 
           atom1 = atom;
-        } else if (e.which === 1 && intersect.length) {
+      } else if (e.which === 1 && position && intersect.length > 0) {
+        let model = this._getNearest(intersect);
 
+        if (model instanceof Chem.Atom) {
+          atom1 = model;
         }
       }
 
     };
 
-    this.listeners.mousemove = function (e) {
+    this.listeners.mousemove = (e) => {
       movePosition.set(e.clientX, e.clientY);
 
-      let position = this._getPosition(downPosition);
-      if (atom1) {
+      let caster = this._getRayCaster(movePosition);
+      let position = this._getPosition(movePosition);
 
+      if (e.which === 1 && atom1 && movePosition.distanceTo(downPosition) > 60) {
+
+        let intersect = caster.intersectObjects(canvas.group.children);
+
+        intersect = intersect.filter(function (item) {
+          return item.object && item.object.type === 'atom' && item.object.model !== atom2;
+        });
+
+        let model = this._getNearest(intersect);
+
+        if(! fixed && model) {
+          canvas.removeAtom(atom2);
+          atom2 = model;
+          let bond = new Chem.Bond(atom1, atom2);
+          canvas.addBond(bond);
+          fixed = true;
+        } else if(! fixed) {
+          if (!atom2) {
+            atom2 = new Chem.Atom();
+            atom2.atomicNumber = 6;
+            atom2.position = position;
+            let bond = new Chem.Bond(atom1, atom2);
+
+            canvas.addAtom(atom2);
+          }
+
+          atom2.position = position;
+          canvas.update();
+        }
       }
     };
 
@@ -78,10 +111,13 @@ class EditorMode {
 
       if (e.which === 1 && upPosition.distanceTo(downPosition) > 60) {
         let position = this._getPosition(upPosition);
+
+
       }
 
       atom1 = false;
       atom2 = false;
+      fixed = false;
     }
   }
 
@@ -112,5 +148,20 @@ class EditorMode {
     rayCaster.setFromCamera(point3d, this.canvas.camera);
 
     return rayCaster;
+  }
+
+  _getNearest(objects) {
+    var distance = 0, result = null;
+
+    for (let object of objects) {
+
+      let _distance = object.object.position.distanceTo(this.canvas.camera.position);
+      if (! result || _distance < distance) {
+        distance = _distance;
+        result = object.object.model;
+      }
+    }
+
+    return result;
   }
 }
