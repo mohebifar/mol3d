@@ -136,11 +136,6 @@ var Canvas = (function () {
     },
     removeAtom: {
       value: function removeAtom(atom) {
-        for (var _iterator5 = atom.bonds[Symbol.iterator](), _step5; !(_step5 = _iterator5.next()).done;) {
-          var bond = _step5.value;
-          console.log(bond);
-        }
-
         atom.emit("delete");
       },
       writable: true,
@@ -181,13 +176,13 @@ var Canvas = (function () {
         var atoms = this.atoms.slice(0, this.atoms.length);
         var bonds = this.bonds.slice(0, this.bonds.length);
 
-        for (var _iterator6 = atoms[Symbol.iterator](), _step6; !(_step6 = _iterator6.next()).done;) {
-          var atom = _step6.value;
+        for (var _iterator5 = atoms[Symbol.iterator](), _step5; !(_step5 = _iterator5.next()).done;) {
+          var atom = _step5.value;
           this.removeAtom(atom);
         }
 
-        for (var _iterator7 = bonds[Symbol.iterator](), _step7; !(_step7 = _iterator7.next()).done;) {
-          var bond = _step7.value;
+        for (var _iterator6 = bonds[Symbol.iterator](), _step6; !(_step6 = _iterator6.next()).done;) {
+          var bond = _step6.value;
           this.removeBond(bond);
         }
       },
@@ -1276,7 +1271,10 @@ var EditorMode = (function () {
         };
 
         this.listeners.mousemove = function (e) {
+          var prevPosition = movePosition.clone();
           movePosition.set(e.clientX, e.clientY);
+
+          var delta = prevPosition.distanceTo(movePosition);
 
           var caster = _this5._getRayCaster(movePosition);
           var position = _this5._getPosition(movePosition);
@@ -1292,11 +1290,17 @@ var EditorMode = (function () {
 
             if (!fixed) {
               if (model) {
-                canvas.removeAtom(atom2);
+                if (atom2) {
+                  canvas.removeAtom(atom2);
+                }
+
                 atom2 = model;
-                var bond = new Chem.Bond(atom1, atom2);
-                canvas.addBond(bond);
                 fixed = true;
+
+                if (atom1.isConnected(atom2)) {
+                  var bond = new Chem.Bond(atom1, atom2);
+                  canvas.addBond(bond);
+                }
               } else {
                 if (!atom2) {
                   atom2 = new Chem.Atom();
@@ -1336,7 +1340,7 @@ var EditorMode = (function () {
       value: function GetPosition(point) {
         var rayCaster = this._getRayCaster(point);
 
-        var planeZ = new THREE.Plane(rayCaster.ray.direction, 0);
+        var planeZ = new THREE.Plane(rayCaster.ray.direction, -2);
         var position = rayCaster.ray.intersectPlane(planeZ);
 
         if (position) {
@@ -1372,8 +1376,8 @@ var EditorMode = (function () {
         var distance = 0,
             result = null;
 
-        for (var _iterator8 = objects[Symbol.iterator](), _step8; !(_step8 = _iterator8.next()).done;) {
-          var object = _step8.value;
+        for (var _iterator7 = objects[Symbol.iterator](), _step7; !(_step7 = _iterator7.next()).done;) {
+          var object = _step7.value;
 
 
           var _distance = object.object.position.distanceTo(this.canvas.camera.position);

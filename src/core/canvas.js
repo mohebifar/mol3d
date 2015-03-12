@@ -74,9 +74,6 @@ class Canvas {
   }
 
   removeAtom(atom) {
-    for(let bond of atom.bonds) {
-      console.log(bond);
-    }
     atom.emit('delete');
   }
 

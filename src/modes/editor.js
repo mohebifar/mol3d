@@ -80,7 +80,10 @@ class EditorMode {
     };
 
     this.listeners.mousemove = (e) => {
+      let prevPosition = movePosition.clone();
       movePosition.set(e.clientX, e.clientY);
+
+      let delta = prevPosition.distanceTo(movePosition);
 
       let caster = this._getRayCaster(movePosition);
       let position = this._getPosition(movePosition);
@@ -97,11 +100,17 @@ class EditorMode {
 
         if (!fixed) {
           if (model) {
-            canvas.removeAtom(atom2);
+            if (atom2) {
+              canvas.removeAtom(atom2);
+            }
+
             atom2 = model;
-            let bond = new Chem.Bond(atom1, atom2);
-            canvas.addBond(bond);
             fixed = true;
+
+            if(atom1.isConnected(atom2)) {
+              let bond = new Chem.Bond(atom1, atom2);
+              canvas.addBond(bond);
+            }
           } else {
             if (!atom2) {
               atom2 = new Chem.Atom();
@@ -139,7 +148,7 @@ class EditorMode {
   _getPosition(point) {
     let rayCaster = this._getRayCaster(point);
 
-    let planeZ = new THREE.Plane(rayCaster.ray.direction, 0);
+    let planeZ = new THREE.Plane(rayCaster.ray.direction, -2);
     let position = rayCaster.ray.intersectPlane(planeZ);
 
     if (position) {
