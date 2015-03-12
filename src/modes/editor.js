@@ -50,18 +50,30 @@ class EditorMode {
       let position = this._getPosition(downPosition);
 
       if (e.which === 1 && position && intersect.length === 0) {
-          let atom = new Chem.Atom();
+        let atom = new Chem.Atom();
 
-          atom.atomicNumber = 6;
-          atom.position = position;
-          canvas.addAtom(atom);
+        atom.atomicNumber = 6;
+        atom.position = position;
+        canvas.addAtom(atom);
 
-          atom1 = atom;
-      } else if (e.which === 1 && position && intersect.length > 0) {
+        atom1 = atom;
+      } else if (position && intersect.length > 0) {
         let model = this._getNearest(intersect);
 
         if (model instanceof Chem.Atom) {
-          atom1 = model;
+          if (e.which === 1) {
+            atom1 = model;
+          } else if (e.which === 3) {
+            canvas.removeAtom(model);
+          }
+        } else if (model instanceof  Chem.Bond) {
+          if (e.which === 1) {
+            // TODO: Add order
+            model.order++;
+            canvas.update();
+          } else if (e.which === 3) {
+            canvas.removeBond(model);
+          }
         }
       }
 
@@ -83,25 +95,28 @@ class EditorMode {
 
         let model = this._getNearest(intersect);
 
-        if(! fixed && model) {
-          canvas.removeAtom(atom2);
-          atom2 = model;
-          let bond = new Chem.Bond(atom1, atom2);
-          canvas.addBond(bond);
-          fixed = true;
-        } else if(! fixed) {
-          if (!atom2) {
-            atom2 = new Chem.Atom();
-            atom2.atomicNumber = 6;
-            atom2.position = position;
+        if (!fixed) {
+          if (model) {
+            canvas.removeAtom(atom2);
+            atom2 = model;
             let bond = new Chem.Bond(atom1, atom2);
+            canvas.addBond(bond);
+            fixed = true;
+          } else {
+            if (!atom2) {
+              atom2 = new Chem.Atom();
+              atom2.atomicNumber = 6;
+              atom2.position = position;
+              let bond = new Chem.Bond(atom1, atom2);
 
-            canvas.addAtom(atom2);
+              canvas.addAtom(atom2);
+            }
+
+            atom2.position = position;
+            canvas.update();
           }
-
-          atom2.position = position;
-          canvas.update();
         }
+
       }
     };
 
@@ -123,7 +138,8 @@ class EditorMode {
 
   _getPosition(point) {
     let rayCaster = this._getRayCaster(point);
-    let planeZ = new THREE.Plane(new THREE.Vector3(0, 0, 1), this.canvas.camera.position.z / 4);
+
+    let planeZ = new THREE.Plane(rayCaster.ray.direction, 0);
     let position = rayCaster.ray.intersectPlane(planeZ);
 
     if (position) {
@@ -150,13 +166,13 @@ class EditorMode {
     return rayCaster;
   }
 
-  _getNearest(objects) {
+  _getNearest(objects, type) {
     var distance = 0, result = null;
 
     for (let object of objects) {
 
       let _distance = object.object.position.distanceTo(this.canvas.camera.position);
-      if (! result || _distance < distance) {
+      if (!result || _distance < distance) {
         distance = _distance;
         result = object.object.model;
       }

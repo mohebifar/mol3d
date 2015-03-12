@@ -136,6 +136,11 @@ var Canvas = (function () {
     },
     removeAtom: {
       value: function removeAtom(atom) {
+        for (var _iterator5 = atom.bonds[Symbol.iterator](), _step5; !(_step5 = _iterator5.next()).done;) {
+          var bond = _step5.value;
+          console.log(bond);
+        }
+
         atom.emit("delete");
       },
       writable: true,
@@ -176,13 +181,13 @@ var Canvas = (function () {
         var atoms = this.atoms.slice(0, this.atoms.length);
         var bonds = this.bonds.slice(0, this.bonds.length);
 
-        for (var _iterator5 = atoms[Symbol.iterator](), _step5; !(_step5 = _iterator5.next()).done;) {
-          var atom = _step5.value;
+        for (var _iterator6 = atoms[Symbol.iterator](), _step6; !(_step6 = _iterator6.next()).done;) {
+          var atom = _step6.value;
           this.removeAtom(atom);
         }
 
-        for (var _iterator6 = bonds[Symbol.iterator](), _step6; !(_step6 = _iterator6.next()).done;) {
-          var bond = _step6.value;
+        for (var _iterator7 = bonds[Symbol.iterator](), _step7; !(_step7 = _iterator7.next()).done;) {
+          var bond = _step7.value;
           this.removeBond(bond);
         }
       },
@@ -347,13 +352,20 @@ var BallAndStick = (function (BaseDisplay) {
       sphere: new THREE.SphereGeometry(0.3, 20, 20, 0, 2 * Math.PI),
       cylinder: new THREE.CylinderGeometry(0.04, 0.04, 1)
     };
-    var mat = new THREE.Matrix4();
-    mat.translate(new THREE.Vector3(0, 1, 0));
-    this.geometries.single = this.geometries.cylinder;
-    this.geometries.double = new THREE.Geometry();
-    this.geometries.double.merge(this.geometries.single, mat);
+
+    var matrix1 = new THREE.Matrix4();
+    matrix1.setPosition(new THREE.Vector3(0, 0.08, 0));
+
+    var matrix2 = new THREE.Matrix4();
+    matrix2.setPosition(new THREE.Vector3(0, -0.08, 0));
 
     this.geometries.cylinder.applyMatrix(new THREE.Matrix4().makeRotationX(Math.PI / 2));
+    this.geometries.bonds = {};
+    this.geometries.bonds[1] = this.geometries.cylinder;
+    this.geometries.bonds[2] = this.geometries.cylinder.clone();
+    this.geometries.bonds[2].merge(this.geometries.cylinder, matrix2);
+    this.geometries.bonds[3] = this.geometries.bonds[2].clone();
+    this.geometries.bonds[3].merge(this.geometries.bonds[2], matrix1);
 
     _get(Object.getPrototypeOf(BallAndStick.prototype), "constructor", this).call(this, canvas);
   }
@@ -363,6 +375,9 @@ var BallAndStick = (function (BaseDisplay) {
   _prototypeProperties(BallAndStick, {
     generateTexture: {
       value: function generateTexture(b, e) {
+        b = new THREE.Color(b);
+        e = new THREE.Color(e);
+
         b = "#" + b.getHexString();
         e = "#" + e.getHexString();
 
@@ -476,8 +491,8 @@ var BallAndStick = (function (BaseDisplay) {
 
         var beginPosition = beginData.position,
             endPosition = endData.position,
-            beginColor = new THREE.Color(begin.element.color),
-            endColor = new THREE.Color(end.element.color),
+            beginColor = begin.element.color,
+            endColor = end.element.color,
             distance = beginPosition.distanceTo(endPosition),
             middle = beginPosition.clone().add(endPosition).divideScalar(2),
             d = 0.06;
@@ -485,8 +500,6 @@ var BallAndStick = (function (BaseDisplay) {
         var material, mesh;
 
         if (!bond.hasData(BAS_KEY)) {
-
-
           material = new THREE.MeshPhongMaterial({
             color: 16777215,
             specular: 1052688,
@@ -494,40 +507,28 @@ var BallAndStick = (function (BaseDisplay) {
             transparent: true
           });
 
-          mesh = new THREE.Mesh(this.geometries.cylinder, material);
+          material.colorCache = [-1, -1];
+          mesh = new THREE.Mesh(this.geometries.bonds[bond.order], material);
+          mesh.model = bond;
+          mesh.type = "bond";
           bond.setData(BAS_KEY, mesh);
         } else {
           mesh = bond.getData(BAS_KEY);
+
           material = mesh.material;
         }
 
-        var texture = BallAndStick.generateTexture(beginColor, endColor);
+        if (material.colorCache[0] !== beginColor && material.colorCache[1] !== endColor) {
+          material.colorCache[0] = beginColor;
+          material.colorCache[1] = endColor;
+          material.map = BallAndStick.generateTexture(beginColor, endColor);
+        }
 
-        material.map = texture;
         mesh.scale.z = distance;
         mesh.position.copy(middle);
         mesh.lookAt(endPosition);
 
         group.add(mesh);
-
-        /*
-            var c = (bond.order - 1) * d;
-        
-            for (let i = 0; i < bond.order; i++) {
-              let mesh = new THREE.Mesh(this.geometries.cylinder, material);
-              mesh.scale.z = distance;
-              mesh.position.copy(middle);
-              mesh.lookAt(endPosition);
-              elements.add(mesh);
-            }
-         for (let j in elements.children) {
-         let cylinder = elements.children[j];
-        
-         cylinder.position.y += j * d * 2.1 - c;
-         }
-        */
-
-
       },
       writable: true,
       enumerable: true,
@@ -552,17 +553,13 @@ var BallAndStick = (function (BaseDisplay) {
       configurable: true
     },
     up: {
-      value: function up() {
-        var scene = this.canvas.scene;
-      },
+      value: function up() {},
       writable: true,
       enumerable: true,
       configurable: true
     },
     down: {
-      value: function down() {
-        var scene = this.canvas.scene;
-      },
+      value: function down() {},
       writable: true,
       enumerable: true,
       configurable: true
@@ -1257,11 +1254,23 @@ var EditorMode = (function () {
             canvas.addAtom(atom);
 
             atom1 = atom;
-          } else if (e.which === 1 && position && intersect.length > 0) {
+          } else if (position && intersect.length > 0) {
             var model = _this5._getNearest(intersect);
 
             if (model instanceof Chem.Atom) {
-              atom1 = model;
+              if (e.which === 1) {
+                atom1 = model;
+              } else if (e.which === 3) {
+                canvas.removeAtom(model);
+              }
+            } else if (model instanceof Chem.Bond) {
+              if (e.which === 1) {
+                // TODO: Add order
+                model.order++;
+                canvas.update();
+              } else if (e.which === 3) {
+                canvas.removeBond(model);
+              }
             }
           }
         };
@@ -1281,24 +1290,26 @@ var EditorMode = (function () {
 
             var model = _this5._getNearest(intersect);
 
-            if (!fixed && model) {
-              canvas.removeAtom(atom2);
-              atom2 = model;
-              var bond = new Chem.Bond(atom1, atom2);
-              canvas.addBond(bond);
-              fixed = true;
-            } else if (!fixed) {
-              if (!atom2) {
-                atom2 = new Chem.Atom();
-                atom2.atomicNumber = 6;
-                atom2.position = position;
+            if (!fixed) {
+              if (model) {
+                canvas.removeAtom(atom2);
+                atom2 = model;
                 var bond = new Chem.Bond(atom1, atom2);
+                canvas.addBond(bond);
+                fixed = true;
+              } else {
+                if (!atom2) {
+                  atom2 = new Chem.Atom();
+                  atom2.atomicNumber = 6;
+                  atom2.position = position;
+                  var bond = new Chem.Bond(atom1, atom2);
 
-                canvas.addAtom(atom2);
+                  canvas.addAtom(atom2);
+                }
+
+                atom2.position = position;
+                canvas.update();
               }
-
-              atom2.position = position;
-              canvas.update();
             }
           }
         };
@@ -1324,7 +1335,8 @@ var EditorMode = (function () {
     _getPosition: {
       value: function GetPosition(point) {
         var rayCaster = this._getRayCaster(point);
-        var planeZ = new THREE.Plane(new THREE.Vector3(0, 0, 1), this.canvas.camera.position.z / 4);
+
+        var planeZ = new THREE.Plane(rayCaster.ray.direction, 0);
         var position = rayCaster.ray.intersectPlane(planeZ);
 
         if (position) {
@@ -1356,12 +1368,12 @@ var EditorMode = (function () {
       configurable: true
     },
     _getNearest: {
-      value: function GetNearest(objects) {
+      value: function GetNearest(objects, type) {
         var distance = 0,
             result = null;
 
-        for (var _iterator7 = objects[Symbol.iterator](), _step7; !(_step7 = _iterator7.next()).done;) {
-          var object = _step7.value;
+        for (var _iterator8 = objects[Symbol.iterator](), _step8; !(_step8 = _iterator8.next()).done;) {
+          var object = _step8.value;
 
 
           var _distance = object.object.position.distanceTo(this.canvas.camera.position);
