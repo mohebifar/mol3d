@@ -8,9 +8,9 @@ class EditorMode {
   }
 
   up() {
-    var canvas = this.canvas,
-      renderer = canvas.renderer,
-      element = renderer.domElement;
+    let canvas = this.canvas,
+        renderer = canvas.renderer,
+        element = renderer.domElement;
 
     element.addEventListener('mousedown', this.listeners.mousedown);
     element.addEventListener('mousemove', this.listeners.mousemove);
@@ -18,9 +18,9 @@ class EditorMode {
   }
 
   down() {
-    var canvas = this.canvas,
-      renderer = canvas.renderer,
-      element = renderer.domElement;
+    let canvas = this.canvas,
+        renderer = canvas.renderer,
+        element = renderer.domElement;
 
     element.removeEventListener('mousedown', this.listeners.mousedown);
   }
@@ -30,13 +30,14 @@ class EditorMode {
   }
 
   _attachListeners() {
-    var downPosition = new THREE.Vector2(),
-      movePosition = new THREE.Vector2(),
-      upPosition = new THREE.Vector2();
+    let downPosition = new THREE.Vector2(),
+        movePosition = new THREE.Vector2(),
+        upPosition = new THREE.Vector2(),
+        canvas = this.canvas;
 
-    var atom1, atom2;
+    let atom1, atom2;
 
-    var fixed = false;
+    let fixed = false;
 
     this.listeners = {};
 
@@ -52,7 +53,7 @@ class EditorMode {
       if (e.which === 1 && position && intersect.length === 0) {
         let atom = new Chem.Atom();
 
-        atom.atomicNumber = 6;
+        atom.atomicNumber = canvas.getData('element');
         atom.position = position;
         canvas.addAtom(atom);
 
@@ -68,8 +69,11 @@ class EditorMode {
           }
         } else if (model instanceof  Chem.Bond) {
           if (e.which === 1) {
-            // TODO: Add order
-            model.order++;
+            if (model.order !== 3) {
+              model.order++;
+            } else {
+              model.order = 1;
+            }
             canvas.update();
           } else if (e.which === 3) {
             canvas.removeBond(model);
@@ -107,16 +111,16 @@ class EditorMode {
             atom2 = model;
             fixed = true;
 
-            if(atom1.isConnected(atom2)) {
+            if (!atom1.isConnected(atom2)) {
               let bond = new Chem.Bond(atom1, atom2);
               canvas.addBond(bond);
             }
           } else {
             if (!atom2) {
               atom2 = new Chem.Atom();
-              atom2.atomicNumber = 6;
+              atom2.atomicNumber = canvas.getData('element');
               atom2.position = position;
-              let bond = new Chem.Bond(atom1, atom2);
+              new Chem.Bond(atom1, atom2);
 
               canvas.addAtom(atom2);
             }
@@ -133,10 +137,9 @@ class EditorMode {
       e.preventDefault();
       upPosition.set(e.clientX, e.clientY);
 
-      if (e.which === 1 && upPosition.distanceTo(downPosition) > 60) {
-        let position = this._getPosition(upPosition);
-
-
+      if (e.which === 1 && upPosition.distanceTo(downPosition) < 2 && atom1) {
+        atom1.atomicNumber = canvas.getData('element');
+        this.canvas.update();
       }
 
       atom1 = false;
@@ -147,7 +150,7 @@ class EditorMode {
 
   _getPosition(point) {
     let rayCaster = this._getRayCaster(point);
-
+    let canvas = this.canvas;
     let planeZ = new THREE.Plane(rayCaster.ray.direction, -2);
     let position = rayCaster.ray.intersectPlane(planeZ);
 
@@ -165,9 +168,9 @@ class EditorMode {
     let element = this.canvas.renderer.domElement;
 
     let point3d = new THREE.Vector3(
-      (point.x / element.offsetWidth) * 2 - 1,
-      -(point.y / element.offsetHeight) * 2 + 1,
-      0.5);
+        (point.x / element.offsetWidth) * 2 - 1,
+        -(point.y / element.offsetHeight) * 2 + 1,
+        0.5);
 
     let rayCaster = new THREE.Raycaster();
     rayCaster.setFromCamera(point3d, this.canvas.camera);
@@ -175,14 +178,12 @@ class EditorMode {
     return rayCaster;
   }
 
-  _getNearest(objects, type) {
-    var distance = 0, result = null;
+  _getNearest(objects) {
+    let distance = 0, result = null;
 
     for (let object of objects) {
-
-      let _distance = object.object.position.distanceTo(this.canvas.camera.position);
-      if (!result || _distance < distance) {
-        distance = _distance;
+      if (!result || object.distance < distance) {
+        distance = object.distance;
         result = object.object.model;
       }
     }

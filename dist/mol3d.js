@@ -51,6 +51,7 @@ var Canvas = (function () {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.setClearColor(0, 0);
+    this.currentMode = null;
 
     this.renderer.domElement.addEventListener("contextmenu", function (e) {
       e.preventDefault();
@@ -68,9 +69,81 @@ var Canvas = (function () {
 
     this._modes = [];
     this._mode = null;
+
+    this.data = {};
+
+    this.setData("element", 6);
   }
 
   _prototypeProperties(Canvas, null, {
+    setData: {
+
+      /**
+       * Inject some data
+       *
+       * @method setData
+       * @param key
+       * @param value
+       * @returns {*}
+       */
+      value: function setData(key, value) {
+        this.data[key] = value;
+        return this;
+      },
+      writable: true,
+      enumerable: true,
+      configurable: true
+    },
+    getData: {
+
+      /**
+       * Get injected data
+       *
+       * @method getData
+       * @param key
+       * @returns {*}
+       */
+      value: function getData(key) {
+        return this.data[key];
+      },
+      writable: true,
+      enumerable: true,
+      configurable: true
+    },
+    hasData: {
+
+      /**
+       * Checks if data with given key exists
+       *
+       * @method hasData
+       * @param key
+       * @returns {boolean}
+       */
+      value: function hasData(key) {
+        return typeof this.data[key] !== "undefined";
+      },
+      writable: true,
+      enumerable: true,
+      configurable: true
+    },
+    getMolecule: {
+      value: function getMolecule() {
+        var molecule = new Chem.Molecule();
+
+        for (var i in this.atoms) {
+          molecule.addAtom(this.atoms[i]);
+        }
+
+        for (var i in this.bonds) {
+          molecule.addBond(this.bonds[i]);
+        }
+
+        return molecule;
+      },
+      writable: true,
+      enumerable: true,
+      configurable: true
+    },
     attach: {
       value: function attach(molecule) {
         for (var i in molecule.atoms) {
@@ -196,6 +269,8 @@ var Canvas = (function () {
           this._mode.down();
         }
 
+        this.currentMode = mode;
+
         for (var i in this._modes) {
           var _mode = this._modes[i];
 
@@ -241,11 +316,11 @@ var Canvas = (function () {
     show: {
       value: function show() {
         var _this3 = this;
+        this.renderer.render(this.scene, this.camera);
+
         requestAnimationFrame(function () {
           return _this3.show();
         });
-
-        this.renderer.render(this.scene, this.camera);
       },
       writable: true,
       enumerable: true,
@@ -453,7 +528,8 @@ var BallAndStick = (function (BaseDisplay) {
         material.ambient.set(atom.element.color);
         material.color.set(atom.element.color);
 
-        var radius = Math.exp(-Math.pow(atom.element.atomicRadius - 91, 2) / 500) * atom.element.atomicRadius / 70;
+        var radius = (1 / Math.exp(-atom.element.atomicRadius / 60) - 1) * atom.element.atomicRadius / 250;
+        radius = Math.min(radius, 2.1);
         mesh.scale.set(radius, radius, radius);
         mesh.position.copy(atom.position);
       },
@@ -509,11 +585,18 @@ var BallAndStick = (function (BaseDisplay) {
           bond.setData(BAS_KEY, mesh);
         } else {
           mesh = bond.getData(BAS_KEY);
+          var suitGeometry = this.geometries.bonds[bond.order];
 
+          if (mesh.geometry !== suitGeometry) {
+            bond.removeData(BAS_KEY);
+            group.remove(mesh);
+            this.drawBond(bond);
+            return;
+          }
           material = mesh.material;
         }
 
-        if (material.colorCache[0] !== beginColor && material.colorCache[1] !== endColor) {
+        if (material.colorCache[0] !== beginColor || material.colorCache[1] !== endColor) {
           material.colorCache[0] = beginColor;
           material.colorCache[1] = endColor;
           material.map = BallAndStick.generateTexture(beginColor, endColor);
@@ -1224,9 +1307,11 @@ var EditorMode = (function () {
         var _this5 = this;
         var downPosition = new THREE.Vector2(),
             movePosition = new THREE.Vector2(),
-            upPosition = new THREE.Vector2();
+            upPosition = new THREE.Vector2(),
+            canvas = this.canvas;
 
-        var atom1, atom2;
+        var atom1 = undefined,
+            atom2 = undefined;
 
         var fixed = false;
 
@@ -1244,7 +1329,7 @@ var EditorMode = (function () {
           if (e.which === 1 && position && intersect.length === 0) {
             var atom = new Chem.Atom();
 
-            atom.atomicNumber = 6;
+            atom.atomicNumber = canvas.getData("element");
             atom.position = position;
             canvas.addAtom(atom);
 
@@ -1260,8 +1345,11 @@ var EditorMode = (function () {
               }
             } else if (model instanceof Chem.Bond) {
               if (e.which === 1) {
-                // TODO: Add order
-                model.order++;
+                if (model.order !== 3) {
+                  model.order++;
+                } else {
+                  model.order = 1;
+                }
                 canvas.update();
               } else if (e.which === 3) {
                 canvas.removeBond(model);
@@ -1297,16 +1385,16 @@ var EditorMode = (function () {
                 atom2 = model;
                 fixed = true;
 
-                if (atom1.isConnected(atom2)) {
+                if (!atom1.isConnected(atom2)) {
                   var bond = new Chem.Bond(atom1, atom2);
                   canvas.addBond(bond);
                 }
               } else {
                 if (!atom2) {
                   atom2 = new Chem.Atom();
-                  atom2.atomicNumber = 6;
+                  atom2.atomicNumber = canvas.getData("element");
                   atom2.position = position;
-                  var bond = new Chem.Bond(atom1, atom2);
+                  new Chem.Bond(atom1, atom2);
 
                   canvas.addAtom(atom2);
                 }
@@ -1322,9 +1410,9 @@ var EditorMode = (function () {
           e.preventDefault();
           upPosition.set(e.clientX, e.clientY);
 
-          if (e.which === 1 && upPosition.distanceTo(downPosition) > 60) {
-            var position = _this5._getPosition(upPosition);
-
+          if (e.which === 1 && upPosition.distanceTo(downPosition) < 2 && atom1) {
+            atom1.atomicNumber = canvas.getData("element");
+            _this5.canvas.update();
           }
 
           atom1 = false;
@@ -1339,7 +1427,7 @@ var EditorMode = (function () {
     _getPosition: {
       value: function GetPosition(point) {
         var rayCaster = this._getRayCaster(point);
-
+        var canvas = this.canvas;
         var planeZ = new THREE.Plane(rayCaster.ray.direction, -2);
         var position = rayCaster.ray.intersectPlane(planeZ);
 
@@ -1372,17 +1460,14 @@ var EditorMode = (function () {
       configurable: true
     },
     _getNearest: {
-      value: function GetNearest(objects, type) {
+      value: function GetNearest(objects) {
         var distance = 0,
             result = null;
 
         for (var _iterator7 = objects[Symbol.iterator](), _step7; !(_step7 = _iterator7.next()).done;) {
           var object = _step7.value;
-
-
-          var _distance = object.object.position.distanceTo(this.canvas.camera.position);
-          if (!result || _distance < distance) {
-            distance = _distance;
+          if (!result || object.distance < distance) {
+            distance = object.distance;
             result = object.object.model;
           }
         }

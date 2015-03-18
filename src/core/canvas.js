@@ -8,6 +8,7 @@ class Canvas {
     this.renderer = new THREE.WebGLRenderer({antialias: true, alpha: true});
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.setClearColor(0x000000, 0);
+    this.currentMode = null;
 
     this.renderer.domElement.addEventListener('contextmenu', (e) => {
       e.preventDefault();
@@ -25,6 +26,59 @@ class Canvas {
 
     this._modes = [];
     this._mode = null;
+
+    this.data = {};
+
+    this.setData('element', 6);
+  }
+
+  /**
+   * Inject some data
+   *
+   * @method setData
+   * @param key
+   * @param value
+   * @returns {*}
+   */
+  setData(key, value) {
+    this.data[key] = value;
+    return this;
+  }
+
+  /**
+   * Get injected data
+   *
+   * @method getData
+   * @param key
+   * @returns {*}
+   */
+  getData(key) {
+    return this.data[key];
+  }
+
+  /**
+   * Checks if data with given key exists
+   *
+   * @method hasData
+   * @param key
+   * @returns {boolean}
+   */
+  hasData(key) {
+    return typeof this.data[key] !== 'undefined';
+  }
+
+  getMolecule() {
+    var molecule = new Chem.Molecule();
+
+    for (let i in this.atoms) {
+      molecule.addAtom(this.atoms[i]);
+    }
+
+    for (let i in this.bonds) {
+      molecule.addBond(this.bonds[i]);
+    }
+
+    return molecule;
   }
 
   attach(molecule) {
@@ -66,6 +120,7 @@ class Canvas {
         display.drawAtom(atom);
       }
     }
+
     for (let bond of this.bonds) {
       for(let display of this._displays) {
         display.drawBond(bond);
@@ -116,6 +171,8 @@ class Canvas {
       this._mode.down();
     }
 
+    this.currentMode = mode;
+
     for (var i in this._modes) {
       let _mode = this._modes[i];
 
@@ -152,9 +209,9 @@ class Canvas {
   }
 
   show() {
-    requestAnimationFrame(() => this.show());
-
     this.renderer.render(this.scene, this.camera);
+
+    requestAnimationFrame(() => this.show());
   }
 
 }

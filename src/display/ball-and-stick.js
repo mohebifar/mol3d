@@ -67,7 +67,8 @@ class BallAndStick extends BaseDisplay {
     material.ambient.set(atom.element.color);
     material.color.set(atom.element.color);
 
-    let radius = Math.exp(-Math.pow(atom.element.atomicRadius - 91, 2) / 500) * atom.element.atomicRadius / 70;
+    let radius = (1 / Math.exp(-atom.element.atomicRadius / 60) - 1) * atom.element.atomicRadius / 250;
+    radius = Math.min(radius, 2.1);
     mesh.scale.set(radius, radius, radius);
     mesh.position.copy(atom.position);
   }
@@ -79,11 +80,11 @@ class BallAndStick extends BaseDisplay {
 
   drawBond(bond) {
     var canvas = this.canvas,
-      group = canvas.group,
-      begin = bond.begin,
-      end = bond.end,
-      beginData = begin.getData(BAS_KEY),
-      endData = end.getData(BAS_KEY);
+        group = canvas.group,
+        begin = bond.begin,
+        end = bond.end,
+        beginData = begin.getData(BAS_KEY),
+        endData = end.getData(BAS_KEY);
 
 
     if (!beginData || !endData) {
@@ -91,12 +92,12 @@ class BallAndStick extends BaseDisplay {
     }
 
     var beginPosition = beginData.position,
-      endPosition = endData.position,
-      beginColor = begin.element.color,
-      endColor = end.element.color,
-      distance = beginPosition.distanceTo(endPosition),
-      middle = beginPosition.clone().add(endPosition).divideScalar(2),
-      d = 0.06;
+        endPosition = endData.position,
+        beginColor = begin.element.color,
+        endColor = end.element.color,
+        distance = beginPosition.distanceTo(endPosition),
+        middle = beginPosition.clone().add(endPosition).divideScalar(2),
+        d = 0.06;
 
     var material, mesh;
 
@@ -115,11 +116,18 @@ class BallAndStick extends BaseDisplay {
       bond.setData(BAS_KEY, mesh);
     } else {
       mesh = bond.getData(BAS_KEY);
+      let suitGeometry = this.geometries.bonds[bond.order];
 
+      if (mesh.geometry !== suitGeometry) {
+        bond.removeData(BAS_KEY);
+        group.remove(mesh);
+        this.drawBond(bond);
+        return;
+      }
       material = mesh.material;
     }
 
-    if (material.colorCache[0] !== beginColor && material.colorCache[1] !== endColor) {
+    if (material.colorCache[0] !== beginColor || material.colorCache[1] !== endColor) {
       material.colorCache[0] = beginColor;
       material.colorCache[1] = endColor;
       material.map = BallAndStick.generateTexture(beginColor, endColor);
@@ -156,7 +164,7 @@ class BallAndStick extends BaseDisplay {
     e = '#' + e.getHexString();
 
     var width = 2,
-      height = 200;
+        height = 200;
 
     // create canvas
     var canvas = document.createElement('canvas');
