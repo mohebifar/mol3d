@@ -6,6 +6,8 @@ export default
 class BallAndStick extends BaseDisplay {
 
   constructor(canvas) {
+    super(canvas);
+
     this.lights = [];
     this.geometries = {
       sphere: new THREE.SphereGeometry(0.3, 20, 20, 0, 2 * Math.PI),
@@ -25,8 +27,6 @@ class BallAndStick extends BaseDisplay {
     this.geometries.bonds[2].merge(this.geometries.cylinder, matrix2);
     this.geometries.bonds[3] = this.geometries.bonds[2].clone();
     this.geometries.bonds[3].merge(this.geometries.bonds[2], matrix1);
-
-    super(canvas);
   }
 
   drawLight() {
