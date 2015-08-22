@@ -27,6 +27,7 @@
     "tests"
   ],
   "dependencies": {
-    "tween.js": "https://github.com/sole/tween.js.git"
+    "tween.js": "https://github.com/sole/tween.js.git",
+    "three.js": "~0.70.0"
   }
 }
