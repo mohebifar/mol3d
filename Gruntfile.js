@@ -2,15 +2,17 @@ var grunt = require('grunt');
 require('load-grunt-tasks')(grunt);
 
 grunt.initConfig({
-  '6to5': {
+  babel: {
     options: {
       sourceMap: true,
       modules: 'ignore'
     },
     dist: {
       files: [{
-        src: '.tmp/es6/concat.js',
-        dest: '.tmp/es5/concat.js'
+        expand: true,
+        cwd: 'src/',
+        src: ['**/*.js', '!intro.js', '!outro.js'],
+        dest: '.tmp/es5/all'
       }]
     }
   },
@@ -22,14 +24,10 @@ grunt.initConfig({
     dist: {
       src: [
         'src/intro.js',
-        '.tmp/es5/concat.js',
+        '.tmp/es5/all/**/*.js',
         'src/outro.js'
       ],
       dest: 'dist/mol3d.js'
-    },
-    es6: {
-      src: ['src/**/*.js', '!src/intro.js', '!src/outro.js'],
-      dest: '.tmp/es6/concat.js'
     }
   },
   uglify: {
@@ -73,6 +71,6 @@ grunt.initConfig({
   }
 });
 
-grunt.registerTask('default', ['clean', 'concat:es6', '6to5', 'concat:dist']);
+grunt.registerTask('default', ['clean', 'babel', 'concat:dist']);
 
 grunt.registerTask('build', ['default', 'uglify']);
