@@ -5,6 +5,7 @@ root.Mol3D = {
   },
   Mode: {
     Orbit: OrbitMode,
+    Reposition: RepositionMode,
     Editor: EditorMode
   }
 };
